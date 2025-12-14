@@ -1,0 +1,8 @@
+{
+  "name": "31 Juegos - Estudio de TV",
+  "description": "Una colección de minijuegos educativos y entretenidos basados en la serie 31 Minutos para niños de 6 a 7 años.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
