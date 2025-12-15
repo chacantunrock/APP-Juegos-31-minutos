@@ -103,48 +103,78 @@ export default function App() {
         </button>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full h-full pb-4">
-        {GAMES.map((game) => (
-          <button
-            key={game.id}
-            onClick={() => handleGameSelect(game.id)}
-            onMouseEnter={() => speak(game.title)}
-            className="group relative bg-white border-4 border-black rounded-2xl p-4 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all duration-200 flex flex-col items-center justify-center text-center"
-          >
-             <div className="text-7xl mb-2 filter drop-shadow-lg group-hover:scale-110 transition-transform">{game.icon}</div>
-             <h3 className="text-2xl font-black text-tv-orange uppercase leading-none">
-               {game.title}
-             </h3>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full h-full pb-4 overflow-y-auto">
+        {GAMES.map((game) => {
+          const gameChar = CHARACTERS.find(c => c.id === game.characterId);
+          return (
+            <button
+              key={game.id}
+              onClick={() => handleGameSelect(game.id)}
+              onMouseEnter={() => speak(game.title)}
+              className="group relative bg-white border-4 border-black rounded-3xl p-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all duration-200 flex flex-col items-center justify-between h-40 md:h-48"
+            >
+               {/* Character Host Badge */}
+               {gameChar && (
+                 <div className={`absolute -top-3 -right-3 w-16 h-16 rounded-full border-4 border-black ${gameChar.color} z-10 flex items-center justify-center overflow-hidden shadow-md transform group-hover:scale-110 transition-transform`}>
+                    <CharacterAvatar character={gameChar} className="w-full h-full object-cover" />
+                 </div>
+               )}
+
+               <div className="flex-1 flex items-center justify-center">
+                  <div className="text-6xl md:text-7xl filter drop-shadow-md group-hover:scale-110 transition-transform">
+                    {game.icon}
+                  </div>
+               </div>
+               
+               <div className="w-full bg-tv-black rounded-xl py-1 md:py-2">
+                 <h3 className="text-lg md:text-xl font-black text-tv-yellow uppercase leading-none text-center px-1">
+                   {game.title}
+                 </h3>
+               </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 
   const renderCharacterSelect = () => (
-    <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 h-full">
-      <div className="flex items-center gap-4 mb-8">
-        <h2 className="text-2xl md:text-4xl font-black text-white bg-black px-6 py-3 rounded-full border-4 border-tv-orange transform rotate-1">
+    <div className="flex flex-col items-center w-full max-w-6xl mx-auto p-4 h-full">
+      <div className="flex items-center gap-4 mb-6 shrink-0">
+        <h2 className="text-3xl md:text-5xl font-black text-white bg-tv-black px-8 py-4 rounded-full border-b-8 border-tv-orange transform -rotate-2 shadow-2xl">
           ¿QUIÉN ERES?
         </h2>
-        <button onClick={() => speak("¿Quién quieres ser?")} className="text-4xl bg-white rounded-full p-2 shadow-lg">🔊</button>
+        <button onClick={() => speak("¿Quién quieres ser?")} className="text-4xl bg-white rounded-full p-3 border-4 border-black shadow-lg hover:scale-110 transition-transform">🔊</button>
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full overflow-y-auto pb-24 px-2">
         {CHARACTERS.map((char) => (
           <button
             key={char.id}
             onClick={() => handleCharacterSelect(char)}
-            className={`flex flex-col items-center p-4 rounded-3xl border-4 border-black bg-white hover:scale-105 active:scale-95 transition-transform shadow-xl`}
+            className="group relative flex items-center w-full h-32 md:h-40 bg-white border-4 border-black rounded-[2rem] shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all overflow-visible"
           >
-            <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full ${char.color} border-4 border-black mb-4 flex items-center justify-center text-xs text-white overflow-hidden relative shadow-inner`}>
-               <CharacterAvatar character={char} className="w-full h-full object-contain p-2 hover:scale-110 transition-transform" />
+            {/* Pastel Background Tint */}
+            <div className={`absolute inset-0 rounded-[1.8rem] ${char.color} opacity-20 group-hover:opacity-30 transition-opacity`} />
+            
+            {/* Image Circle Container - Overlapping left */}
+            <div className={`relative -ml-4 w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black ${char.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform z-10`}>
+              <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden bg-white border-2 border-black/10">
+                 <CharacterAvatar character={char} className="w-full h-full object-cover" />
+              </div>
             </div>
-            <span className="font-bold text-2xl text-center uppercase text-tv-black">{char.name}</span>
+
+            {/* Name Text */}
+            <div className="flex-1 text-center pr-4 z-0">
+              <span className="block font-black text-2xl md:text-4xl uppercase text-tv-black drop-shadow-sm group-hover:scale-105 transition-transform">
+                {char.name}
+              </span>
+            </div>
           </button>
         ))}
       </div>
-      <button onClick={goHome} className="mt-auto mb-4 bg-red-500 text-white font-bold p-4 rounded-full border-4 border-black text-2xl shadow-lg">
+      
+      <button onClick={goHome} className="fixed bottom-6 left-6 bg-red-600 text-white font-bold w-20 h-20 rounded-full border-4 border-white ring-4 ring-black text-4xl shadow-2xl z-50 flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
         🔙
       </button>
     </div>
@@ -195,7 +225,7 @@ export default function App() {
     <div className="h-screen w-screen bg-news-pattern bg-[length:40px_40px] flex items-center justify-center p-2 relative overflow-hidden">
        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-0 pointer-events-none"></div>
        
-       <div className="z-10 w-full h-full max-w-5xl flex flex-col">
+       <div className="z-10 w-full h-full max-w-6xl flex flex-col">
         {view === AppView.MENU && renderMenu()}
         {view === AppView.CHARACTER_SELECT && renderCharacterSelect()}
         {view === AppView.GAME && selectedGame && (
