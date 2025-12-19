@@ -1,56 +1,52 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { CharacterId } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+// Helper to clean output text from common LLM artifacts
+const cleanText = (text: string) => text.replace(/["*]/g, '').trim();
 
-let ai: GoogleGenAI | null = null;
-
-try {
-  if (apiKey) {
-    ai = new GoogleGenAI({ apiKey: apiKey });
-  }
-} catch (e) {
-  console.error("Error initializing Gemini client", e);
-}
-
+/**
+ * Gets a short, character-specific feedback message for the user's score.
+ */
 export const getCharacterFeedback = async (
   character: CharacterId,
   score: number,
   gameName: string
 ): Promise<string> => {
-  if (!ai) {
-    return "¡Muy bien jugado!";
-  }
+  // Always create a new instance right before making the call as per guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // Adjusted prompt for 6-7 year olds who can't read well (audio focus)
   const prompt = `
-    Eres ${character} de 31 Minutos.
-    Un niño de 6 años jugó "${gameName}" y logró ${score} puntos.
-    Dame una frase MUY CORTA (máximo 10 palabras).
-    Debe ser fácil de leer en voz alta, divertida y motivadora.
-    Usa lenguaje sencillo.
+    Eres el personaje ${character} de la serie "31 Minutos".
+    Un niño de 6 años ha terminado de jugar "${gameName}" y obtuvo ${score} puntos.
+    Dame un mensaje de felicitación MUY CORTO (máximo 8 palabras).
+    Debe sonar exactamente como hablaría ${character}.
+    Usa un lenguaje muy sencillo y alegre. Sin asteriscos ni comillas.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text?.replace(/["*]/g, '') || "¡Eres genial!";
+    return cleanText(response.text) || "¡Felicidades, amigo!";
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "¡Eres un campeón!";
   }
 };
 
+/**
+ * Edits an image using Gemini 2.5 Flash Image model.
+ */
 export const editImageWithGemini = async (
   base64Image: string,
   prompt: string
 ): Promise<string | null> => {
-  if (!ai) return null;
+  // Always create a new instance right before making the call
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
-    // Remove header if present
     const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
 
     const response = await ai.models.generateContent({
@@ -64,14 +60,14 @@ export const editImageWithGemini = async (
             },
           },
           {
-            text: `Edit this image: ${prompt}. Maintain the style fun and suitable for children.`
+            text: `Modify this photo: ${prompt}. Style: Bright, colorful, 31 Minutos puppet world, friendly for children, cartoonish.`
           },
         ],
       },
     });
 
-    // Extract image from response
     if (response.candidates && response.candidates[0].content.parts) {
+      // Find the image part as it may not be the first part
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData && part.inlineData.data) {
           return `data:image/png;base64,${part.inlineData.data}`;

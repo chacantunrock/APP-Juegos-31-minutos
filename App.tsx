@@ -12,8 +12,8 @@ enum AppView {
   RESULT
 }
 
-// Component to handle character avatar with fallback
-const CharacterAvatar = ({ character, className }: { character: Character | null, className: string }) => {
+// Component to handle character avatar with custom tooltip
+const CharacterAvatar = ({ character, className, showTooltip = true }: { character: Character | null, className: string, showTooltip?: boolean }) => {
   const [error, setError] = useState(false);
   
   if (!character) return null;
@@ -21,12 +21,21 @@ const CharacterAvatar = ({ character, className }: { character: Character | null
   const fallbackUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${character.name}&mouth=smile,bigSmile,laughing`;
 
   return (
-    <img 
-      src={error ? fallbackUrl : character.avatarUrl} 
-      alt={character.name} 
-      className={className}
-      onError={() => setError(true)}
-    />
+    <div className="relative group/avatar w-full h-full flex items-center justify-center">
+      <img 
+        src={error ? fallbackUrl : character.avatarUrl} 
+        alt={character.name} 
+        className={`${className} object-cover w-full h-full`}
+        style={{ objectPosition: 'center top' }}
+        onError={() => setError(true)}
+      />
+      {showTooltip && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover/avatar:block bg-white border-2 border-black px-3 py-1 rounded-xl text-[10px] md:text-xs font-black uppercase text-tv-black z-[100] whitespace-nowrap shadow-[3px_3px_0px_rgba(0,0,0,1)] pointer-events-none transition-all">
+          {character.name}
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border-r-2 border-b-2 border-black rotate-45"></div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -94,7 +103,7 @@ export default function App() {
 
   const renderMenu = () => (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 animate-fade-in h-full">
-      <header className="mb-4 text-center bg-tv-black text-white px-8 py-4 rounded-3xl border-b-8 border-tv-orange shadow-2xl w-full flex justify-between items-center">
+      <header className="mb-4 text-center bg-tv-black text-white px-8 py-4 rounded-3xl border-b-8 border-tv-orange shadow-2xl w-full flex justify-between items-center shrink-0">
         <h1 className="text-3xl md:text-5xl font-black tracking-tighter uppercase text-tv-yellow transform -rotate-2">
           31 Juegos
         </h1>
@@ -113,10 +122,12 @@ export default function App() {
               onMouseEnter={() => speak(game.title)}
               className="group relative bg-white border-4 border-black rounded-3xl p-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all duration-200 flex flex-col items-center justify-between h-40 md:h-48"
             >
-               {/* Character Host Badge */}
+               {/* Character Host Badge - Removed overflow-hidden to allow tooltip overflow */}
                {gameChar && (
-                 <div className={`absolute -top-3 -right-3 w-16 h-16 rounded-full border-4 border-black ${gameChar.color} z-10 flex items-center justify-center overflow-hidden shadow-md transform group-hover:scale-110 transition-transform`}>
-                    <CharacterAvatar character={gameChar} className="w-full h-full object-cover" />
+                 <div className={`absolute -top-3 -right-3 w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-black ${gameChar.color} z-10 flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform bg-white`}>
+                    <div className="w-full h-full rounded-full overflow-hidden">
+                      <CharacterAvatar character={gameChar} className="w-full h-full" />
+                    </div>
                  </div>
                )}
 
@@ -158,9 +169,9 @@ export default function App() {
             <div className={`absolute inset-0 rounded-[1.8rem] ${char.color} opacity-20 group-hover:opacity-30 transition-opacity`} />
             
             {/* Image Circle Container - Overlapping left */}
-            <div className={`relative -ml-4 w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black ${char.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform z-10`}>
-              <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden bg-white border-2 border-black/10">
-                 <CharacterAvatar character={char} className="w-full h-full object-cover" />
+            <div className={`relative -ml-4 w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black ${char.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform z-10 bg-white overflow-visible`}>
+              <div className="w-full h-full rounded-full overflow-hidden">
+                <CharacterAvatar character={char} className="w-full h-full" />
               </div>
             </div>
 
@@ -181,22 +192,24 @@ export default function App() {
   );
 
   const renderResult = () => (
-    <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-4 text-center animate-fade-in">
-       <div className="bg-white border-8 border-black p-8 rounded-[3rem] shadow-2xl relative w-full">
+    <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-4 text-center animate-fade-in overflow-y-auto">
+       <div className="bg-white border-8 border-black p-8 rounded-[3rem] shadow-2xl relative w-full my-12">
           <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-tv-orange text-white px-8 py-2 font-black text-3xl uppercase border-4 border-black -rotate-2 rounded-xl">
              🏆 {score} 🏆
           </div>
           
           <div className="mt-12 mb-8 p-4 bg-gray-100 rounded-3xl border-4 border-dashed border-gray-400 flex flex-col items-center">
-             <div className={`w-32 h-32 rounded-full border-4 border-black overflow-hidden mb-4 ${selectedCharacter?.color}`}>
-                 <CharacterAvatar character={selectedCharacter} className="w-full h-full object-contain p-1" />
+             <div className={`w-32 h-32 rounded-full border-4 border-black overflow-visible mb-4 ${selectedCharacter?.color} bg-white`}>
+                <div className="w-full h-full rounded-full overflow-hidden">
+                  <CharacterAvatar character={selectedCharacter} className="w-full h-full" />
+                </div>
              </div>
              {loadingFeedback ? (
                <div className="text-4xl animate-pulse">💬 ...</div>
              ) : (
-               <div className="flex items-center gap-2">
-                  <p className="text-3xl font-bold text-black italic">"{feedback}"</p>
-                  <button onClick={() => speak(feedback, selectedCharacter?.voicePitch, selectedCharacter?.voiceRate)} className="text-3xl ml-2 bg-yellow-300 rounded-full p-2">🔊</button>
+               <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <p className="text-2xl md:text-3xl font-bold text-black italic">"{feedback}"</p>
+                  <button onClick={() => speak(feedback, selectedCharacter?.voicePitch, selectedCharacter?.voiceRate)} className="text-3xl ml-2 bg-yellow-300 rounded-full p-2 hover:scale-110 transition-transform">🔊</button>
                </div>
              )}
           </div>
@@ -230,14 +243,16 @@ export default function App() {
         {view === AppView.CHARACTER_SELECT && renderCharacterSelect()}
         {view === AppView.GAME && selectedGame && (
           <div className="flex-1 flex flex-col h-full py-4">
-            <div className="mb-2 flex justify-between items-center bg-black text-white px-4 py-2 rounded-full border-2 border-white shadow-lg mx-2">
+            <div className="mb-2 flex justify-between items-center bg-black text-white px-4 py-2 rounded-full border-2 border-white shadow-lg mx-2 shrink-0">
                <div className="flex items-center gap-2">
-                 <div className={`w-10 h-10 rounded-full border-2 border-white overflow-hidden ${selectedCharacter?.color}`}>
-                    <CharacterAvatar character={selectedCharacter} className="w-full h-full object-contain" />
+                 <div className={`w-10 h-10 rounded-full border-2 border-white overflow-visible ${selectedCharacter?.color} bg-white`}>
+                    <div className="w-full h-full rounded-full overflow-hidden">
+                      <CharacterAvatar character={selectedCharacter} className="w-full h-full" />
+                    </div>
                  </div>
-                 <span className="font-bold">{selectedCharacter?.name}</span>
+                 <span className="font-bold hidden sm:inline">{selectedCharacter?.name}</span>
                </div>
-               <button onClick={goHome} className="bg-red-600 px-4 py-1 rounded-full font-bold border-2 border-red-800">X</button>
+               <button onClick={goHome} className="bg-red-600 px-4 py-1 rounded-full font-bold border-2 border-red-800 hover:bg-red-700 transition-colors">SALIR</button>
             </div>
             <div className="flex-1 overflow-hidden relative">
                <ActiveGame type={selectedGame} onFinish={handleGameFinish} />
