@@ -1,5 +1,7 @@
+
 // Simple Audio Context wrapper for sound effects
 let audioCtx: AudioContext | null = null;
+let globalVolume = 0.5;
 
 const initAudio = () => {
   if (!audioCtx) {
@@ -11,6 +13,12 @@ const initAudio = () => {
   return audioCtx;
 };
 
+export const setGlobalVolume = (volume: number) => {
+  globalVolume = volume;
+};
+
+export const getGlobalVolume = () => globalVolume;
+
 export const playTone = (type: 'correct' | 'wrong' | 'click' | 'win') => {
   try {
     const ctx = initAudio();
@@ -21,12 +29,13 @@ export const playTone = (type: 'correct' | 'wrong' | 'click' | 'win') => {
     gain.connect(ctx.destination);
 
     const now = ctx.currentTime;
+    const vol = 0.1 * globalVolume;
 
     if (type === 'correct') {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(523.25, now); // C5
       osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.1); // C6
-      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.setValueAtTime(vol, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
       osc.start(now);
       osc.stop(now + 0.3);
@@ -34,14 +43,14 @@ export const playTone = (type: 'correct' | 'wrong' | 'click' | 'win') => {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(150, now);
       osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.setValueAtTime(vol, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
       osc.start(now);
       osc.stop(now + 0.4);
     } else if (type === 'click') {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(800, now);
-      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.setValueAtTime(vol * 0.5, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       osc.start(now);
       osc.stop(now + 0.05);
@@ -54,7 +63,7 @@ export const playTone = (type: 'correct' | 'wrong' | 'click' | 'win') => {
          gain2.connect(ctx.destination);
          osc2.type = 'square';
          osc2.frequency.value = freq;
-         gain2.gain.setValueAtTime(0.05, now + i*0.1);
+         gain2.gain.setValueAtTime(vol * 0.5, now + i*0.1);
          gain2.gain.exponentialRampToValueAtTime(0.001, now + i*0.1 + 0.2);
          osc2.start(now + i*0.1);
          osc2.stop(now + i*0.1 + 0.2);
@@ -76,7 +85,7 @@ export const speak = (text: string, pitch: number = 1, rate: number = 1, force: 
   utterance.lang = 'es-ES';
   utterance.pitch = pitch;
   utterance.rate = rate;
-  utterance.volume = 1;
+  utterance.volume = globalVolume;
 
   window.speechSynthesis.speak(utterance);
 };

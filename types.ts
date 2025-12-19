@@ -1,3 +1,4 @@
+
 export enum CharacterId {
   TULIO = 'Tulio Triviño',
   BODOQUE = 'Juan Carlos Bodoque',
@@ -32,7 +33,9 @@ export enum GameType {
   SHAPES = 'Bombi: Las Formas',
   PUZZLES = 'Tenison: Rompecabezas',
   VEO_ANIMATION = 'Cine Mágico',
-  KARAOKE = 'Karaoke Top'
+  LOGIC_CLUE = 'Patana: El Culpable',
+  SPATIAL_MAP = 'Huachimingo: El Mapa',
+  RIGHTS_LOGIC = 'Calcetín: Derechos'
 }
 
 export interface Character {
@@ -41,9 +44,9 @@ export interface Character {
   color: string;
   avatarUrl: string;
   catchphrase: string;
-  voicePitch: number; // 0 to 2
-  voiceRate: number;  // 0.1 to 10
-  visualDescription: string; // For Gemini Image generation
+  voicePitch: number;
+  voiceRate: number;
+  visualDescription: string;
 }
 
 export interface GameResult {

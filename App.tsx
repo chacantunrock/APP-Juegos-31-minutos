@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { CHARACTERS, GAMES } from './constants';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { CHARACTERS, GAMES, NEWS_PHRASES } from './constants';
 import { Character, CharacterId, GameType } from './types';
 import { ActiveGame } from './components/Games';
 import { getCharacterFeedback } from './services/geminiService';
-import { speak, playTone, stopSpeech } from './services/audio';
+import { speak, playTone, stopSpeech, setGlobalVolume } from './services/audio';
 
 enum AppView {
   MENU,
@@ -12,29 +13,21 @@ enum AppView {
   RESULT
 }
 
-// Component to handle character avatar with custom tooltip
-const CharacterAvatar = ({ character, className, showTooltip = true }: { character: Character | null, className: string, showTooltip?: boolean }) => {
+const CharacterAvatar = ({ character, className, isAnimated = true }: { character: Character | null, className: string, isAnimated?: boolean }) => {
   const [error, setError] = useState(false);
-  
   if (!character) return null;
 
-  const fallbackUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${character.name}&mouth=smile,bigSmile,laughing`;
+  const fallbackUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${character.name}`;
 
   return (
-    <div className="relative group/avatar w-full h-full flex items-center justify-center">
+    <div className={`w-full h-full flex items-center justify-center bg-white overflow-hidden rounded-full border-2 border-black shadow-inner ${isAnimated ? 'animate-puppet' : ''}`}>
       <img 
         src={error ? fallbackUrl : character.avatarUrl} 
         alt={character.name} 
-        className={`${className} object-cover w-full h-full`}
+        className={`${className} object-cover w-full h-full p-1`}
         style={{ objectPosition: 'center top' }}
         onError={() => setError(true)}
       />
-      {showTooltip && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover/avatar:block bg-white border-2 border-black px-3 py-1 rounded-xl text-[10px] md:text-xs font-black uppercase text-tv-black z-[100] whitespace-nowrap shadow-[3px_3px_0px_rgba(0,0,0,1)] pointer-events-none transition-all">
-          {character.name}
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border-r-2 border-b-2 border-black rotate-45"></div>
-        </div>
-      )}
     </div>
   );
 };
@@ -46,8 +39,8 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string>("");
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [volume, setVolume] = useState(0.5);
 
-  // State for custom voice configurations
   const [voiceConfigs, setVoiceConfigs] = useState<Record<string, { pitch: number, rate: number }>>(() => {
     const initialConfigs: Record<string, { pitch: number, rate: number }> = {};
     CHARACTERS.forEach(char => {
@@ -56,38 +49,28 @@ export default function App() {
     return initialConfigs;
   });
 
-  // Stop speech when unmounting or changing views drastically
   useEffect(() => {
     return () => stopSpeech();
   }, [view]);
 
-  // --- Handlers ---
+  useEffect(() => {
+    setGlobalVolume(volume);
+  }, [volume]);
+
   const handleGameSelect = (gameId: GameType) => {
     playTone('click');
-    speak("Elige tu personaje");
+    speak("Elige tu personaje para empezar la transmisión");
     setSelectedGame(gameId);
     setView(AppView.CHARACTER_SELECT);
   };
 
-  const handleVoiceConfigChange = (charId: string, type: 'pitch' | 'rate', value: number) => {
-    setVoiceConfigs(prev => ({
-      ...prev,
-      [charId]: { ...prev[charId], [type]: value }
-    }));
-  };
-
   const handleCharacterSelect = (char: Character) => {
     const config = voiceConfigs[char.id];
-    const customizedChar = { 
-      ...char, 
-      voicePitch: config.pitch, 
-      voiceRate: config.rate 
-    };
-    
+    const customizedChar = { ...char, voicePitch: config.pitch, voiceRate: config.rate };
     playTone('click');
-    speak(`¡Hola soy ${customizedChar.name}!`, customizedChar.voicePitch, customizedChar.voiceRate);
+    speak(`¡Hola soy ${customizedChar.name}! Preparados para la acción.`, customizedChar.voicePitch, customizedChar.voiceRate);
     setSelectedCharacter(customizedChar);
-    setTimeout(() => setView(AppView.GAME), 1000); // Delay for greeting
+    setTimeout(() => setView(AppView.GAME), 1200);
   };
 
   const handleGameFinish = async (finalScore: number) => {
@@ -95,18 +78,10 @@ export default function App() {
     setView(AppView.RESULT);
     setLoadingFeedback(true);
     playTone('win');
-    
     if (selectedCharacter && selectedGame) {
-      const msg = await getCharacterFeedback(
-        selectedCharacter.id,
-        finalScore,
-        selectedGame
-      );
+      const msg = await getCharacterFeedback(selectedCharacter.id, finalScore, selectedGame);
       setFeedback(msg);
-      // Speak using the customized voice settings stored in selectedCharacter
-      setTimeout(() => {
-        speak(msg, selectedCharacter.voicePitch, selectedCharacter.voiceRate);
-      }, 500);
+      setTimeout(() => speak(msg, selectedCharacter.voicePitch, selectedCharacter.voiceRate), 500);
     }
     setLoadingFeedback(false);
   };
@@ -119,165 +94,131 @@ export default function App() {
     setSelectedCharacter(null);
     setScore(0);
     setFeedback("");
-    speak("Menú principal");
   };
 
-  // --- Views ---
+  const VolumeControl = () => (
+    <div className="flex items-center gap-3 bg-tv-black/90 px-5 py-2 rounded-full border-2 border-white/30 shadow-xl">
+      <span className="text-white font-black text-xs uppercase tracking-tighter">Audio</span>
+      <input 
+        type="range" min="0" max="1" step="0.1" 
+        value={volume}
+        onChange={(e) => setVolume(parseFloat(e.target.value))}
+        className="w-24 md:w-32 h-2 accent-tv-yellow bg-gray-600 rounded-lg appearance-none cursor-pointer"
+      />
+    </div>
+  );
 
   const renderMenu = () => (
-    <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 animate-fade-in h-full">
-      <header className="mb-4 text-center bg-tv-black text-white px-8 py-4 rounded-3xl border-b-8 border-tv-orange shadow-2xl w-full flex justify-between items-center shrink-0">
-        <h1 className="text-3xl md:text-5xl font-black tracking-tighter uppercase text-tv-yellow transform -rotate-2">
-          31 Juegos
-        </h1>
-        <button onClick={() => speak("Bienvenido a 31 Juegos. Toca un dibujo para jugar.")} className="text-4xl bg-white/20 rounded-full p-2">
-            🔊
-        </button>
+    <div className="flex flex-col items-center w-full h-full relative">
+      <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-white/10 to-transparent pointer-events-none z-10"></div>
+      
+      <header className="pt-6 pb-4 text-center w-full flex flex-col items-center z-20 px-4 shrink-0">
+        <div className="bg-tv-black text-white px-8 py-3 rounded-[2rem] border-[6px] border-black shadow-[10px_10px_0px_rgba(0,0,0,1)] transform -rotate-1">
+           <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic leading-none">
+             <span className="text-tv-yellow">31</span> <span className="text-tv-orange">JUEGOS</span>
+           </h1>
+           <p className="text-[10px] font-bold tracking-[0.5em] text-tv-orange mt-1">ESTUDIO DE TELEVISIÓN</p>
+        </div>
+        <div className="mt-4">
+           <VolumeControl />
+        </div>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full h-full pb-4 overflow-y-auto">
-        {GAMES.map((game) => {
-          const gameChar = CHARACTERS.find(c => c.id === game.characterId);
-          return (
-            <button
-              key={game.id}
-              onClick={() => handleGameSelect(game.id)}
-              onMouseEnter={() => speak(game.title)}
-              className="group relative bg-white border-4 border-black rounded-3xl p-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all duration-200 flex flex-col items-center justify-between h-40 md:h-48"
-            >
-               {gameChar && (
-                 <div className={`absolute -top-3 -right-3 w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-black ${gameChar.color} z-10 flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform bg-white`}>
-                    <div className="w-full h-full rounded-full overflow-hidden">
-                      <CharacterAvatar character={gameChar} className="w-full h-full" />
-                    </div>
-                 </div>
-               )}
-
-               <div className="flex-1 flex items-center justify-center">
-                  <div className="text-6xl md:text-7xl filter drop-shadow-md group-hover:scale-110 transition-transform">
-                    {game.icon}
+      <div className="flex-1 w-full overflow-y-auto pb-28 pt-10 px-6 scrollbar-hide">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12 max-w-6xl mx-auto items-start justify-items-center">
+          {GAMES.map((game) => {
+            const gameChar = CHARACTERS.find(c => c.id === game.characterId);
+            return (
+              <button
+                key={game.id}
+                onClick={() => handleGameSelect(game.id)}
+                className="group relative bg-white border-[4px] border-tv-black rounded-[2rem] flex flex-col items-center justify-center w-[130px] h-[100px] shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:shadow-[10px_10px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all overflow-visible"
+              >
+                <div className="absolute inset-1 rounded-[1.5rem] tv-monitor-overlay pointer-events-none z-10"></div>
+                {gameChar && (
+                  <div className="absolute -top-10 -right-4 w-16 h-16 z-30 group-hover:scale-110 transition-transform">
+                    <CharacterAvatar character={gameChar} className="w-full h-full" />
                   </div>
-               </div>
-               
-               <div className="w-full bg-tv-black rounded-xl py-1 md:py-2">
-                 <h3 className="text-lg md:text-xl font-black text-tv-yellow uppercase leading-none text-center px-1">
-                   {game.title}
-                 </h3>
-               </div>
-            </button>
-          );
-        })}
+                )}
+                <div className="flex-1 flex items-center justify-center mb-4 relative z-0">
+                  <span className="text-4xl group-hover:scale-125 transition-transform duration-500">{game.icon}</span>
+                </div>
+                <div className="absolute -bottom-4 left-2 right-2 h-10 bg-tv-black rounded-xl border-[4px] border-black flex items-center justify-center shadow-lg group-hover:bg-tv-blue transition-colors">
+                  <h3 className="text-[10px] font-black text-tv-yellow uppercase tracking-tighter leading-none px-1 text-center truncate">{game.title}</h3>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      <footer className="fixed bottom-0 left-0 w-full h-14 bg-tv-red border-t-[6px] border-black z-40 flex items-center overflow-hidden">
+        <div className="bg-tv-black text-white font-black px-4 h-full flex items-center border-r-[6px] border-black z-50">Urgente</div>
+        <div className="news-ticker text-white font-bold text-xl uppercase tracking-wider flex items-center gap-10">
+           {NEWS_PHRASES.map((phrase, i) => (
+             <span key={i} className="flex items-center gap-10">{phrase} <span className="text-tv-yellow">★</span></span>
+           ))}
+        </div>
+      </footer>
     </div>
   );
 
   const renderCharacterSelect = () => (
-    <div className="flex flex-col items-center w-full max-w-6xl mx-auto p-4 h-full">
-      <div className="flex items-center gap-4 mb-6 shrink-0">
-        <h2 className="text-3xl md:text-5xl font-black text-white bg-tv-black px-8 py-4 rounded-full border-b-8 border-tv-orange transform -rotate-2 shadow-2xl">
-          ¿QUIÉN ERES?
-        </h2>
-        <button onClick={() => speak("Personaliza tu voz y elige un personaje.")} className="text-4xl bg-white rounded-full p-3 border-4 border-black shadow-lg hover:scale-110 transition-transform">🔊</button>
+    <div className="flex flex-col items-center w-full max-w-6xl mx-auto p-4 h-full relative">
+      <div className="z-10 mt-10 text-center">
+        <div className="bg-tv-black text-white px-12 py-5 rounded-[3rem] border-[8px] border-black shadow-2xl uppercase tracking-tighter transform -rotate-1 inline-block">
+          <h2 className="text-4xl md:text-6xl font-black italic">¿QUIÉN ERES?</h2>
+          <p className="text-tv-yellow text-xs font-bold mt-1 tracking-[0.3em]">CASTING DE PERSONAJES</p>
+        </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full overflow-y-auto pb-24 px-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full overflow-y-auto pb-40 pt-16 px-6 scrollbar-hide">
         {CHARACTERS.map((char) => (
           <button
             key={char.id}
             onClick={() => handleCharacterSelect(char)}
-            className="group relative flex items-center w-full h-auto min-h-[10rem] bg-white border-4 border-black rounded-[2rem] shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all overflow-visible p-4"
+            className="group relative flex flex-col items-center gap-2 bg-white border-[6px] border-tv-black rounded-[2.5rem] p-4 shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all"
           >
-            {/* Pastel Background Tint */}
-            <div className={`absolute inset-0 rounded-[1.8rem] ${char.color} opacity-20 group-hover:opacity-30 transition-opacity`} />
-            
-            {/* Image Circle Container */}
-            <div className={`relative -ml-6 w-28 h-28 md:w-36 md:h-36 rounded-full border-4 border-black ${char.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform z-10 bg-white overflow-visible`}>
-              <div className="w-full h-full rounded-full overflow-hidden">
-                <CharacterAvatar character={char} className="w-full h-full" />
-              </div>
+            <div className="w-20 h-20 md:w-28 md:h-28 relative z-10">
+              <CharacterAvatar character={char} className="w-full h-full" />
             </div>
-
-            {/* Content Area */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 pl-4 z-0">
-              <span className="block font-black text-xl md:text-3xl uppercase text-tv-black drop-shadow-sm group-hover:scale-105 transition-transform mb-2">
-                {char.name}
-              </span>
-
-              {/* Voice Controls - Retro Knobs/Sliders */}
-              <div className="w-full max-w-[150px] flex flex-col gap-2 bg-black/10 p-2 rounded-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex flex-col w-full">
-                   <div className="flex justify-between items-center mb-1">
-                      <label className="text-[10px] font-black uppercase text-tv-black">Tono</label>
-                      <span className="text-[10px] font-bold text-tv-orange">{voiceConfigs[char.id].pitch.toFixed(1)}</span>
-                   </div>
-                   <input 
-                    type="range" min="0.5" max="2.0" step="0.1" 
-                    value={voiceConfigs[char.id].pitch}
-                    onChange={(e) => handleVoiceConfigChange(char.id, 'pitch', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-tv-black rounded-lg appearance-none cursor-pointer accent-tv-orange"
-                   />
-                </div>
-                <div className="flex flex-col w-full">
-                   <div className="flex justify-between items-center mb-1">
-                      <label className="text-[10px] font-black uppercase text-tv-black">Velocidad</label>
-                      <span className="text-[10px] font-bold text-tv-orange">{voiceConfigs[char.id].rate.toFixed(1)}</span>
-                   </div>
-                   <input 
-                    type="range" min="0.5" max="2.5" step="0.1" 
-                    value={voiceConfigs[char.id].rate}
-                    onChange={(e) => handleVoiceConfigChange(char.id, 'rate', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-tv-black rounded-lg appearance-none cursor-pointer accent-tv-orange"
-                   />
-                </div>
-              </div>
-            </div>
+            <span className="font-black text-sm md:text-lg uppercase text-tv-black tracking-tighter italic z-10 truncate w-full text-center">{char.name}</span>
           </button>
         ))}
       </div>
-      
-      <button onClick={goHome} className="fixed bottom-6 left-6 bg-red-600 text-white font-bold w-20 h-20 rounded-full border-4 border-white ring-4 ring-black text-4xl shadow-2xl z-50 flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
-        🔙
-      </button>
+      <button onClick={goHome} className="fixed bottom-20 left-10 bg-tv-red text-white font-black px-10 py-5 rounded-full border-[8px] border-black shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:scale-110 active:scale-95 transition-all text-xl uppercase italic tracking-tighter z-50">Cancelar</button>
     </div>
   );
 
   const renderResult = () => (
-    <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-4 text-center animate-fade-in overflow-y-auto">
-       <div className="bg-white border-8 border-black p-8 rounded-[3rem] shadow-2xl relative w-full my-12">
-          <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-tv-orange text-white px-8 py-2 font-black text-3xl uppercase border-4 border-black -rotate-2 rounded-xl">
-             🏆 {score} 🏆
-          </div>
-          
-          <div className="mt-12 mb-8 p-4 bg-gray-100 rounded-3xl border-4 border-dashed border-gray-400 flex flex-col items-center">
-             <div className={`w-32 h-32 rounded-full border-4 border-black overflow-visible mb-4 ${selectedCharacter?.color} bg-white`}>
-                <div className="w-full h-full rounded-full overflow-hidden">
-                  <CharacterAvatar character={selectedCharacter} className="w-full h-full" />
-                </div>
+    <div className="flex flex-col items-center justify-center h-full max-w-4xl mx-auto p-4 text-center animate-fade-in">
+       <div className="bg-white border-[10px] border-tv-black p-12 rounded-[5rem] shadow-[25px_25px_0px_rgba(0,0,0,1)] relative w-full overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-tv-yellow/10 to-transparent pointer-events-none"></div>
+          <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-tv-blue text-white px-14 py-4 font-black text-4xl uppercase border-[8px] border-black rounded-3xl shadow-2xl rotate-1">¡TOP TOP TOP!</div>
+          <div className="mt-12 mb-10 flex flex-col items-center">
+             <div className="w-40 h-40 md:w-56 md:h-56 mb-8 transform hover:rotate-6 transition-transform">
+                <CharacterAvatar character={selectedCharacter} className="w-full h-full" />
              </div>
-             {loadingFeedback ? (
-               <div className="text-4xl animate-pulse">💬 ...</div>
-             ) : (
-               <div className="flex items-center gap-2 flex-wrap justify-center">
-                  <p className="text-2xl md:text-3xl font-bold text-black italic">"{feedback}"</p>
-                  <button onClick={() => speak(feedback, selectedCharacter?.voicePitch, selectedCharacter?.voiceRate)} className="text-3xl ml-2 bg-yellow-300 rounded-full p-2 hover:scale-110 transition-transform">🔊</button>
-               </div>
-             )}
+             <div className="bg-gray-100 p-8 rounded-[3rem] border-4 border-dashed border-gray-400 max-w-2xl">
+                <p className="text-3xl md:text-5xl font-black text-tv-black uppercase tracking-tighter leading-none italic">
+                  "{feedback || '¡Excelente transmisión!'}"
+                </p>
+             </div>
+             <div className="mt-8 text-6xl font-black text-tv-orange bg-tv-black px-10 py-3 rounded-2xl border-4 border-black shadow-xl">
+                {score} <span className="text-sm uppercase tracking-widest align-middle">Pts</span>
+             </div>
           </div>
-
-          <div className="flex gap-6 justify-center">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center relative z-10">
             <button 
-              onClick={goHome}
-              className="bg-gray-200 text-black w-24 h-24 rounded-2xl font-bold text-4xl hover:bg-gray-300 border-b-8 border-gray-400 active:border-b-0 active:translate-y-2 transition-all flex items-center justify-center"
-              aria-label="Inicio"
+              onClick={() => { playTone('click'); setView(AppView.GAME); }} 
+              className="bg-tv-orange text-white px-12 py-6 rounded-3xl font-black text-3xl border-[8px] border-black hover:scale-105 transition-all shadow-[10px_10px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none uppercase italic italic"
             >
-              🏠
+              REINTENTAR
             </button>
             <button 
-              onClick={() => setView(AppView.GAME)}
-              className="bg-tv-orange text-white w-24 h-24 rounded-2xl font-bold text-4xl hover:bg-orange-600 border-b-8 border-red-800 active:border-b-0 active:translate-y-2 transition-all flex items-center justify-center"
-              aria-label="Jugar de nuevo"
+              onClick={goHome} 
+              className="bg-tv-black text-white px-12 py-6 rounded-3xl font-black text-3xl border-[8px] border-black hover:scale-105 transition-all shadow-[10px_10px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none uppercase italic"
             >
-              🔄
+              MENÚ INICIO
             </button>
           </div>
        </div>
@@ -285,27 +226,29 @@ export default function App() {
   );
 
   return (
-    <div className="h-screen w-screen bg-news-pattern bg-[length:40px_40px] flex items-center justify-center p-2 relative overflow-hidden">
-       <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-0 pointer-events-none"></div>
-       
-       <div className="z-10 w-full h-full max-w-6xl flex flex-col">
+    <div className="h-screen w-screen bg-news-pattern bg-[length:80px_80px] flex items-center justify-center relative overflow-hidden">
+       <div className="absolute inset-0 tv-static z-[100] pointer-events-none"></div>
+       <div className="absolute inset-0 pointer-events-none z-[90] bg-gradient-to-t from-black/20 via-transparent to-black/20"></div>
+       <div className="z-10 w-full h-full flex flex-col overflow-hidden">
         {view === AppView.MENU && renderMenu()}
         {view === AppView.CHARACTER_SELECT && renderCharacterSelect()}
         {view === AppView.GAME && selectedGame && (
-          <div className="flex-1 flex flex-col h-full py-4">
-            <div className="mb-2 flex justify-between items-center bg-black text-white px-4 py-2 rounded-full border-2 border-white shadow-lg mx-2 shrink-0">
+          <div className="flex-1 flex flex-col h-full py-4 px-4 overflow-hidden">
+            <div className="mb-4 flex justify-between items-center bg-tv-black text-white px-6 py-2 rounded-[1.5rem] border-[4px] border-white shadow-2xl mx-2 shrink-0">
                <div className="flex items-center gap-2">
-                 <div className={`w-10 h-10 rounded-full border-2 border-white overflow-visible ${selectedCharacter?.color} bg-white`}>
-                    <div className="w-full h-full rounded-full overflow-hidden">
-                      <CharacterAvatar character={selectedCharacter} className="w-full h-full" />
-                    </div>
-                 </div>
-                 <span className="font-bold hidden sm:inline">{selectedCharacter?.name}</span>
+                  <div className="w-8 h-8">
+                     <CharacterAvatar character={selectedCharacter} className="w-full h-full" isAnimated={false} />
+                  </div>
+                  <span className="font-black uppercase tracking-tighter text-sm text-tv-yellow truncate max-w-[100px]">{selectedGame}</span>
                </div>
-               <button onClick={goHome} className="bg-red-600 px-4 py-1 rounded-full font-bold border-2 border-red-800 hover:bg-red-700 transition-colors">SALIR</button>
+               <div className="flex items-center gap-4">
+                 <VolumeControl />
+                 <button onClick={goHome} className="bg-tv-red px-4 py-1 rounded-full font-black text-[10px] border-[2px] border-white uppercase italic tracking-tighter hover:scale-105 transition-transform">Salir</button>
+               </div>
             </div>
             <div className="flex-1 overflow-hidden relative">
-               <ActiveGame type={selectedGame} onFinish={handleGameFinish} />
+               <div className="absolute inset-0 tv-monitor-overlay pointer-events-none z-20 rounded-[3rem]"></div>
+               <ActiveGame type={selectedGame} onFinish={handleGameFinish} volume={volume} />
             </div>
           </div>
         )}

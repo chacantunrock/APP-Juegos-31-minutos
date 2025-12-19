@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>31 Juegos</title>
+    <title>31 Juegos - ¡Al Aire!</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -11,9 +12,10 @@
           extend: {
             colors: {
               'tv-orange': '#FF6B00',
-              'tv-black': '#1A1A1A',
+              'tv-black': '#121212',
               'tv-yellow': '#FFD700',
-              'tv-check': '#333333',
+              'tv-blue': '#2B4CF2',
+              'tv-red': '#E60000',
             },
             backgroundImage: {
               'news-pattern': "repeating-linear-gradient(45deg, #FF6B00 25%, transparent 25%, transparent 75%, #FF6B00 75%, #FF6B00), repeating-linear-gradient(45deg, #FF6B00 25%, #1A1A1A 25%, #1A1A1A 75%, #FF6B00 75%, #FF6B00)",
@@ -26,12 +28,55 @@
       @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap');
       body {
         font-family: 'Rubik', sans-serif;
+        background-color: #121212;
       }
+      
+      /* Efecto de monitor de TV */
+      .tv-monitor-overlay {
+        position: relative;
+        overflow: hidden;
+      }
+      .tv-monitor-overlay::before {
+        content: " ";
+        display: block;
+        position: absolute;
+        top: 0; left: 0; bottom: 0; right: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+        z-index: 20;
+        background-size: 100% 4px, 3px 100%;
+        pointer-events: none;
+      }
+
+      /* Animación de títere */
+      @keyframes puppet-wobble {
+        0%, 100% { transform: rotate(-2deg) translateY(0); }
+        50% { transform: rotate(2deg) translateY(-5px); }
+      }
+      .animate-puppet {
+        animation: puppet-wobble 3s ease-in-out infinite;
+      }
+
+      /* Marquesina de noticias */
+      .news-ticker {
+        white-space: nowrap;
+        animation: ticker 30s linear infinite;
+      }
+      @keyframes ticker {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+      }
+
+      .perspective-text {
+        transform: perspective(400px) rotateX(10deg);
+      }
+
+      /* Estilo de la estática */
       .tv-static {
         background-image: url('https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif');
         background-size: cover;
-        opacity: 0.05;
+        opacity: 0.03;
         pointer-events: none;
+        z-index: 50;
       }
     </style>
   <script type="importmap">
@@ -45,7 +90,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-100 h-screen w-screen overflow-hidden">
+  <body class="h-screen w-screen overflow-hidden select-none">
     <div id="root"></div>
   </body>
 </html>
