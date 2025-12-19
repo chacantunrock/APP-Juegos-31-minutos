@@ -47,6 +47,15 @@ export default function App() {
   const [feedback, setFeedback] = useState<string>("");
   const [loadingFeedback, setLoadingFeedback] = useState(false);
 
+  // State for custom voice configurations
+  const [voiceConfigs, setVoiceConfigs] = useState<Record<string, { pitch: number, rate: number }>>(() => {
+    const initialConfigs: Record<string, { pitch: number, rate: number }> = {};
+    CHARACTERS.forEach(char => {
+      initialConfigs[char.id] = { pitch: char.voicePitch, rate: char.voiceRate };
+    });
+    return initialConfigs;
+  });
+
   // Stop speech when unmounting or changing views drastically
   useEffect(() => {
     return () => stopSpeech();
@@ -60,10 +69,24 @@ export default function App() {
     setView(AppView.CHARACTER_SELECT);
   };
 
+  const handleVoiceConfigChange = (charId: string, type: 'pitch' | 'rate', value: number) => {
+    setVoiceConfigs(prev => ({
+      ...prev,
+      [charId]: { ...prev[charId], [type]: value }
+    }));
+  };
+
   const handleCharacterSelect = (char: Character) => {
+    const config = voiceConfigs[char.id];
+    const customizedChar = { 
+      ...char, 
+      voicePitch: config.pitch, 
+      voiceRate: config.rate 
+    };
+    
     playTone('click');
-    speak(`¡Hola soy ${char.name}!`, char.voicePitch, char.voiceRate);
-    setSelectedCharacter(char);
+    speak(`¡Hola soy ${customizedChar.name}!`, customizedChar.voicePitch, customizedChar.voiceRate);
+    setSelectedCharacter(customizedChar);
     setTimeout(() => setView(AppView.GAME), 1000); // Delay for greeting
   };
 
@@ -80,7 +103,7 @@ export default function App() {
         selectedGame
       );
       setFeedback(msg);
-      // Speak the feedback in character's voice settings
+      // Speak using the customized voice settings stored in selectedCharacter
       setTimeout(() => {
         speak(msg, selectedCharacter.voicePitch, selectedCharacter.voiceRate);
       }, 500);
@@ -122,7 +145,6 @@ export default function App() {
               onMouseEnter={() => speak(game.title)}
               className="group relative bg-white border-4 border-black rounded-3xl p-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all duration-200 flex flex-col items-center justify-between h-40 md:h-48"
             >
-               {/* Character Host Badge - Removed overflow-hidden to allow tooltip overflow */}
                {gameChar && (
                  <div className={`absolute -top-3 -right-3 w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-black ${gameChar.color} z-10 flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform bg-white`}>
                     <div className="w-full h-full rounded-full overflow-hidden">
@@ -155,7 +177,7 @@ export default function App() {
         <h2 className="text-3xl md:text-5xl font-black text-white bg-tv-black px-8 py-4 rounded-full border-b-8 border-tv-orange transform -rotate-2 shadow-2xl">
           ¿QUIÉN ERES?
         </h2>
-        <button onClick={() => speak("¿Quién quieres ser?")} className="text-4xl bg-white rounded-full p-3 border-4 border-black shadow-lg hover:scale-110 transition-transform">🔊</button>
+        <button onClick={() => speak("Personaliza tu voz y elige un personaje.")} className="text-4xl bg-white rounded-full p-3 border-4 border-black shadow-lg hover:scale-110 transition-transform">🔊</button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full overflow-y-auto pb-24 px-2">
@@ -163,23 +185,51 @@ export default function App() {
           <button
             key={char.id}
             onClick={() => handleCharacterSelect(char)}
-            className="group relative flex items-center w-full h-32 md:h-40 bg-white border-4 border-black rounded-[2rem] shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all overflow-visible"
+            className="group relative flex items-center w-full h-auto min-h-[10rem] bg-white border-4 border-black rounded-[2rem] shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all overflow-visible p-4"
           >
             {/* Pastel Background Tint */}
             <div className={`absolute inset-0 rounded-[1.8rem] ${char.color} opacity-20 group-hover:opacity-30 transition-opacity`} />
             
-            {/* Image Circle Container - Overlapping left */}
-            <div className={`relative -ml-4 w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black ${char.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform z-10 bg-white overflow-visible`}>
+            {/* Image Circle Container */}
+            <div className={`relative -ml-6 w-28 h-28 md:w-36 md:h-36 rounded-full border-4 border-black ${char.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform z-10 bg-white overflow-visible`}>
               <div className="w-full h-full rounded-full overflow-hidden">
                 <CharacterAvatar character={char} className="w-full h-full" />
               </div>
             </div>
 
-            {/* Name Text */}
-            <div className="flex-1 text-center pr-4 z-0">
-              <span className="block font-black text-2xl md:text-4xl uppercase text-tv-black drop-shadow-sm group-hover:scale-105 transition-transform">
+            {/* Content Area */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 pl-4 z-0">
+              <span className="block font-black text-xl md:text-3xl uppercase text-tv-black drop-shadow-sm group-hover:scale-105 transition-transform mb-2">
                 {char.name}
               </span>
+
+              {/* Voice Controls - Retro Knobs/Sliders */}
+              <div className="w-full max-w-[150px] flex flex-col gap-2 bg-black/10 p-2 rounded-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex flex-col w-full">
+                   <div className="flex justify-between items-center mb-1">
+                      <label className="text-[10px] font-black uppercase text-tv-black">Tono</label>
+                      <span className="text-[10px] font-bold text-tv-orange">{voiceConfigs[char.id].pitch.toFixed(1)}</span>
+                   </div>
+                   <input 
+                    type="range" min="0.5" max="2.0" step="0.1" 
+                    value={voiceConfigs[char.id].pitch}
+                    onChange={(e) => handleVoiceConfigChange(char.id, 'pitch', parseFloat(e.target.value))}
+                    className="w-full h-2 bg-tv-black rounded-lg appearance-none cursor-pointer accent-tv-orange"
+                   />
+                </div>
+                <div className="flex flex-col w-full">
+                   <div className="flex justify-between items-center mb-1">
+                      <label className="text-[10px] font-black uppercase text-tv-black">Velocidad</label>
+                      <span className="text-[10px] font-bold text-tv-orange">{voiceConfigs[char.id].rate.toFixed(1)}</span>
+                   </div>
+                   <input 
+                    type="range" min="0.5" max="2.5" step="0.1" 
+                    value={voiceConfigs[char.id].rate}
+                    onChange={(e) => handleVoiceConfigChange(char.id, 'rate', parseFloat(e.target.value))}
+                    className="w-full h-2 bg-tv-black rounded-lg appearance-none cursor-pointer accent-tv-orange"
+                   />
+                </div>
+              </div>
             </div>
           </button>
         ))}
